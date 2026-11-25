@@ -1,0 +1,506 @@
+﻿# Terminal interface
+
+Run `zlib tui` in a terminal for a persistent shell. Press `/` on the home screen
+to open commands, then choose Search to enter a book title. The home screen has
+no search input; typing, pasting, and Ctrl+K do not open commands there.
+Tab completes the selected command; Enter runs it, even
+when you've typed only part of its name (for example, `/th` selects `/theme`).
+`/quit` exits. The shell keeps the current book list and selection when you return from
+a download, theme, settings or Kindle screen.
+
+The signed-in start screen shows a five-row ZLIB wordmark painted with one
+Accent-to-Link gradient across its columns, as Crush paints its logo. When a
+theme's Link is too close to Accent for the ramp to show, Info or Success ends
+the gradient (`wordmarkRampEnd`). The home screen shows no brand text, build
+version, decorative side strokes or trademark sign; use `zlib version` for the
+version. Below 32 columns or 12 rows, the word ZLIB in the same gradient
+replaces it.
+With at least 16 content rows, two blank rows separate the wordmark and command
+hints; compact layouts use one. Command columns have a four-cell gutter; single-column hints fit their content.
+It does not display the current directory or a persistent sign-in label. At 76
+columns or wider, command hints use two columns; smaller terminals use one.
+The hints show commands to type in the input; typing `/` opens the selectable
+command menu. Without a saved session, `zlib tui` opens the email and password
+form immediately. Press Esc to reach the signed-out start screen, where Enter
+reopens login and `/` gives access to settings and domain checks. That screen
+shows a heading, a focused Log in button rendered by `renderActionButton`, and
+the sign-in method; it adds no other explanatory text. Command hints on the
+signed-in screen use muted descriptions, matching the command dialog. A successful
+login returns to the start screen. If you tried a protected command first, its
+draft stays in the input so
+you can press Enter to continue. Login errors stay on the form for another try.
+The TUI login form accepts email and password. To import a Cookie file, use
+`zlib login --cookies <file> --domain <domain>` outside the TUI.
+`/logout` asks for confirmation, clears the saved session and account pages, then
+opens the login form. If session removal fails, the current screen shows an error.
+
+Typing `/` opens a centered command dialog over the current page. It keeps the
+page and its selection in place. At 80×24, the dialog shows five commands,
+each with its description below the name. Narrow terminals show one line per
+command. ↑/↓ cycles through matches,
+including from last to first; the list scrolls when selection leaves its visible
+rows. Type to filter, Tab to complete into the command input, or Enter to run.
+On book lists, Ctrl+K also opens the dialog. Esc closes it and restores the page.
+
+Shell command feedback appears at the right end of the title row, so the list
+status line below it stays visible. Errors start with ✗ in the error color and
+stay until the next key press. Confirmations start with ✓ in the success color;
+they and neutral hints disappear after five seconds. New feedback restarts the
+timer; an older timer cannot clear a newer message. The input and bottom key
+hints stay in place. Errors that need a response stay on their form or result
+page.
+
+Direct commands such as `zlib search` and `zlib history --json` still work.
+The Search form shows query, year range, languages, formats, exact match, and sort
+order together. With at least 20 rows the query sits in a rounded box, like a
+chat composer, with an accent border while focused; shorter terminals use a
+plain prompt line. The form is at most 100 columns wide. A Crush-style
+`Filters ─── N active` section header precedes the filter rows, whose labels
+share one 12-cell column; unset values (`Any`, `Default`, `[ ]`) are muted.
+The status line above the key hints describes the focused field. A validation
+error appears directly below its field, wraps instead of truncating, and clears
+once that field is edited.
+Enter opens a language, format, or sort picker; Space toggles a
+language or format. Esc closes the picker. The borderless Search button uses the
+accent background when focused. Tab moves between fields, Enter submits from
+the button, and Ctrl+S submits from any field. Invalid years stay on the form.
+Search loading shows the dot spinner with `Searching…` and the active filters.
+The result status line appends the active filters after the page and position
+bar while at least 12 cells remain; narrower terminals drop them. An empty
+result lists the active filters and suggests loosening them. Request errors
+wrap to the terminal width so the reason stays readable.
+Direct `zlib search <query>` accepts `--from-year`, `--to-year`, repeatable
+`--language` and `--ext`, `--exact`, and `--order`. An unset sort does not send
+an `order` value. The result page reopens the same filters with Ctrl+F in the
+shell or `/` in direct interactive search.
+Bare `zlib` prints the home screen's ZLIB wordmark above command help, without
+the version line. Use `zlib version` to see the full version.
+`zlib tui` requires an interactive terminal.
+
+The shell accepts `/search`, `/favorites`, `/recommended`, `/most-popular`,
+`/history`, `/login`, `/logout`, `/profile`, `/doctor`,
+`/config`, `/config network`, `/config download`, `/config kindle`, `/config weread`, `/config metadata`, `/theme`, `/kindle`,
+`/kindle config`, `/kindle send <file>`, `/weread`, `/weread import <file>`,
+`/weread login`, `/weread logout`, `/meta`, `/meta <file>` and `/quit`. Use `zlib version`
+outside the TUI to check the installed version.
+For automation, use direct commands and their flags, including `--json`.
+To download a selected book in the TUI, press Enter on its list row. To download
+by `id:hash` directly, use `zlib download "id:hash"` outside the TUI.
+The search list keeps its scroll position while you move within visible rows.
+If a search returns nothing or fails, reopen its filters with Ctrl+F, or retry a
+failed request with r.
+Search and the other book lists show a Charm dot spinner while fetching results.
+Page numbers appear after loading. Profile, login, and settings domain checks
+also use the dot spinner while waiting for a response.
+Search results appear together when the request completes; rows do not fill in
+over several frames. Search loading and empty states keep their controls at the
+bottom of the page. An empty search shows its page and offers a query edit.
+Doctor checks all domains at once and adds each available one to the list as
+soon as it answers. One Charm dot spinner with a count ("Checking domains… 3 of
+12") shows progress; rows never read "Checking". Esc returns.
+`zlib doctor` opens the same page in an interactive terminal. Results contain
+only available domains, without a status label on each row. The accent border
+marks the focused row; `Current domain` marks the configured domain, which gets
+initial focus when it answers, until you move the focus. Moving the focus does
+not change configuration. The Settings domain page fills each row's result the
+same way, with the same single spinner and count; pending rows stay blank.
+Available domains show a green `✓`; unavailable domains show a red `✗`,
+including on the focused row. Redirects keep `via <host>` beside the check mark.
+Redirected output uses a single-column table; `--json` keeps the probe fields.
+The status row below the list title is the only position indicator: it reads
+`Page 1 of 10 · Book 5 of 50` (feeds without pages show only `Book 5 of 50`).
+The title row carries no counter and there is no progress bar; the EAPI reports
+a page count but no total number of books, so lists never show one.
+Search loads up to 50 books per server page, matching the direct `search` command.
+The number of visible rows follows the terminal height; scroll within a page with
+↑/↓ or PgUp/PgDn and change server pages with ←/→.
+
+## Book list spacing
+
+Search, Favorites, Recommended, Most popular, and History share one list layout:
+
+- Put the title and status above the selected-book card. At 78 columns or wider
+  with at least 20 page rows, the card uses 11 rows. From 30 to 77 columns it
+  uses 13 rows when the page has at least 24 rows. Otherwise it uses 8 rows.
+- The expanded card shows category, year, edition, publisher, language, pages,
+  and ISBN 10/13 when available. Missing EAPI fields are left blank. Valid
+  ISBN 10 and `978` ISBN 13 values can supply each other's equivalent. History
+  keeps the ISBN its list response names, as the other lists do, so its card
+  shows it before the details load; `zlib history --json` carries it as `isbn`,
+  `isbn_10` and `isbn_13` when present.
+- Leave one empty row between the card and the column header.
+- At a page height of 15 rows or more, leave one empty row between the list area
+  and the bottom controls.
+- At a page height of 14 rows, omit the bottom gap to keep a book visible. Below
+  14 rows or narrower than 30 columns, show the enlarge-terminal prompt.
+
+Calculate visible book rows from the page height. The shell reserves space for
+its footer and, while typing a command, its input. Keep `feedRows()` and
+`feedViewWith()` in sync so scrolling, selection, and rendering agree. Use
+`fullScreenView()` to fill any remaining terminal space. The cross-page layout
+test is `TestBookListSpacingMatchesSearchAcrossPages`.
+
+The selected book's EAPI details load after the selection settles. Results are
+cached by `id:hash`; moving to another book keeps an older response from
+replacing its card. The list response remains visible while details load.
+Press i on a book list to open Book details. Esc returns to the same selection; Enter uses the existing download action.
+
+On a Kitty graphics or Sixel terminal at 100 columns and 20 page rows or larger, the selected-book card and Book details show the cover on the left. Other terminals show a text-only card. Details, limits and caching are in [Book covers](covers.md).
+
+The card border uses the theme accent, and its author uses the theme's primary
+text color. Moving the selection updates the card and status position immediately,
+without a color flash or animated position change.
+History uses the same `#`, `Title`, and `Author` columns as the other book lists.
+The selected entry's download date appears beside the page status. Its card uses
+the book's author and metadata when EAPI provides them; moving within visible
+history rows keeps the list viewport still.
+
+## Controls
+
+### Action buttons
+
+Render every operation through `renderActionButton` in `tui_layout.go`. Forms,
+confirmations, settings editors, download completion, and download-directory
+choices use the same borderless button: two cells of horizontal padding, theme
+surface and title color at rest, theme accent fill when focused. A focused
+destructive action uses the theme error fill. The fill shows focus; do not add a
+leading `>` or a separate button border. Paint gaps between buttons with the
+panel background so ANSI resets do not expose the terminal background. Keep
+Cancel focused when a confirmation opens. Use `actionButtonRows` to wrap groups
+by terminal width. List entries and folder browser rows retain their list
+selection style.
+
+| Screen | Controls |
+| --- | --- |
+| Shell command input | `/` opens commands from a list; ↑/↓ cycles; Ctrl+K also opens it; Tab completes; Esc closes; pasted text needs Enter to run |
+| Profile | Full-screen account and daily download quota; the used count sits above a width-aware horizontal bar. Wide terminals show account fields in two columns. ↑/↓ or PgUp/PgDn scrolls when needed; r retries a failed request; Esc returns. |
+| Doctor | Full-screen available-domain list; the focused row has an accent border and the current configured domain has a separate marker; ↑/↓ selects, PgUp/PgDn scrolls, r checks again, Esc returns |
+| Book lists | ↑/↓ or j/k select; PgUp/PgDn scroll; Home/End jump; Enter opens download confirmation; q or Esc exits |
+| Search, saved books, history | ←/→ changes page |
+| Search results | Ctrl+F reopens Search filters in the shell; `/` reopens them in direct `zlib search`. Other lists have no filters, so their footer does not offer Ctrl+F |
+| Failed list request | r retries the failed page; Esc closes |
+| Login, search options, Kindle settings | Enter edits a field; Enter applies an edit; Tab advances; choose the final action or press Ctrl+S to submit; Esc cancels |
+| Format selection | Huh checkbox list: ↑/↓ moves; Space toggles; Ctrl+A selects all or clears all; Enter continues; no selected formats means all formats |
+| Config | Network, download, Kindle and WeRead settings appear in one compact list; WeRead account opens a page to log in with a QR code or log out; arrows or Tab select a field; Enter opens it; Esc returns; Tab selects editor actions |
+| Config domain | Your mirrors, then built-in domains, each with its check result and available rows first within each group; `●` marks the current domain; rows appear at once and fill in as checks finish. Enter uses an available row and explains why other rows cannot be used; `a` adds a mirror (check, then a trust dialog); `d` removes a mirror after confirmation; `r` checks again; Esc returns |
+| File picker | Lists folders and only the files the destination accepts (extension match ignores case); the status line names the formats. Enter opens a folder or selects a file; ← goes to the parent and returns to the folder just left; `/` accepts a directory path; Esc exits |
+| Download directory | A centered dialog overlays the selected book list. Download here uses the displayed folder; Choose another folder opens the browser. Space selects a folder; e or / edits the path; Esc uses the displayed folder; Ctrl+C cancels. |
+| Theme | Type to filter; ↑/↓ previews; Enter selects; Ctrl+N creates a custom theme; Ctrl+E edits a custom theme or copies a built-in; Ctrl+S saves color edits; Esc cancels or clears the filter |
+| Confirmation | Cancel is selected initially; ←/→ or Tab changes the action; Enter confirms |
+| Download | Esc or Ctrl+C cancels an active transfer. After completion, the page shows the full saved path and Back. Supported file types also show Send to Kindle and Send to WeRead; left/right selects an action and Enter opens it. Up/down scrolls a long path. Kindle sending and WeRead import ask for confirmation and return to the saved-file page; without a WeRead login, the QR login page opens first and the import continues after it. A download failure stays on its own page with r to retry using the same book and directory, or Esc to return. |
+
+Passwords are masked. Invalid field values stay in the editor with an error.
+
+On Search, Favorites, Recommended, Most popular and History lists, `s` sends
+the selected book to Kindle: it downloads to the default directory, then sends
+with the saved Kindle settings, without a directory picker or send confirmation.
+The shortcut also works in book details. Set the directory in Config / Downloads;
+an unset directory uses the current directory. Missing SMTP passwords open the
+masked password form in the shell. Failed downloads can be retried with `r`;
+failed or uncertain email sends require an explicit resend. Unsupported files
+stay on the saved-file page with an error.
+
+Config / Search sets default formats from a checklist. Arrow keys move and
+Space toggles a format and Ctrl+A checks every format, or clears them all when
+every format is already checked. Enter saves (Ctrl+S too) and Esc discards the
+draft; saving with nothing checked allows any format. The panel has no buttons,
+and its footer lists exactly these keys. The centered panel becomes a scrolling
+full-screen list on narrow terminals. A query's search form can change or clear
+the formats for that query.
+If the SMTP password is missing after Kindle confirmation, a masked form saves
+it to the global `.env` and sets it for the current process before sending.
+Cancel returns to the saved file; a save error keeps the form open.
+Kindle SMTP sending cannot be recalled: Ctrl+C stops waiting, and the message
+may still be delivered.
+After a Kindle send error, the file and error remain visible. Check the Kindle
+inbox before starting another send; the error page does not resend automatically.
+Download errors hide signed URLs in the terminal view.
+
+## Connection errors
+
+A timeout, TLS handshake timeout, refused or dropped connection, DNS failure or
+DiamWall block is shown as "Can't reach `<host>`" with one sentence on the cause
+and what to do next. Request URLs and raw `net/http` text never appear; the
+transport cause is one muted `Details:` line.
+
+| Page | Keys on a connection error |
+| --- | --- |
+| Search, Favorites, Recommended, Most popular, History, Profile (in the shell) | `d` change domain, `r` retry, `esc` back |
+| Same pages from a direct command such as `zlib history` | `r` retry, `esc` back; the screen names `zlib config domain` |
+| Download | `r` retry, `esc` back; the screen names `/config domain` |
+
+`d` opens the domain page. When it closes, the shell reruns the command that
+failed, so you land on the same page using the domain you chose. Search resumes
+with its query but not its filters. Other errors, such as an expired session,
+keep their own message and have no `d` key.
+
+The code is in `internal/cli/neterr.go`; add new pages by calling
+`loadErrorView` and, for the `d` key, implementing `domainSwitcher`. Tests:
+`TestHistoryConnectionErrorOffersDomainSwitch` and
+`TestShellDomainSwitchOpensDomainPageThenResumes`.
+
+## Implementation references
+
+Interactive `zlib profile` uses the same profile page as `/profile`, including
+loading, retry, scrolling, and the quota bar. `--json` keeps its JSON output;
+redirected text output uses the same profile fields without opening a TUI.
+`zlib kindle`, `kindle config`, and `kindle send` reuse the corresponding shell
+pages and transitions. Closing them returns to the terminal. Kindle send results
+stay visible until dismissed; non-interactive sends do not open a confirmation.
+`zlib weread`, `weread login` and `weread import <file>` reuse the `/weread`
+pages the same way. The login page renders the QR code black on white so it
+scans on dark terminals, offers `r` for a new code after expiry or a declined
+login, and asks for a larger terminal when the code does not fit. Kindle and
+WeRead file pickers open in the default download directory.
+
+`/meta` looks a local book up online and fixes its metadata; it needs no
+Z-Library login. It opens a file picker listing folders and the formats
+`zlib meta` reads, or takes a path (`/meta "<file>"`). The page does not search
+at once: it moves through a prepare step, a lookup, candidates, fields and
+writing. The subtitle says which of the three steps you are on (`Step 1 of 3:
+Search`, `Step 2 of 3: Choose a match`, or `2/3` when the terminal is narrow),
+and `?` on any page
+lists every key it takes, including those the footer has no room for, and
+leaves out keys that do nothing there; the list scrolls when the terminal is
+short. `?`, Esc, `q` or Enter close it. In an editor `?` is text, and it does
+nothing while a search or a write runs:
+
+- **Prepare** has three parts, top to bottom. First a book detail card, like
+  the one in the search results: a rounded border with the file's cover on the
+  left (where the terminal can draw images; a file with none shows `no cover`)
+  and its metadata beside it: the title and authors, then labelled rows whose
+  values start in one column (publisher, date, language, series, tags, ISBN,
+  Z-Library ID, format) and the start of the description. Only fields the file
+  has are shown, with no blank lines, so a sparse book gives a short card; when
+  the rows are too few the fields are packed into dotted lines instead of being
+  dropped. The shortcuts for editing the file's fields (`m`) and for all its
+  details (`i`) are on the `Search for` rule under the card. Under the card is what will be searched and where each part
+  came from, read from the file name first and then the file (an ISBN row only
+  when there is an ISBN to search by); under that the sources to ask. Nothing
+  has been sent yet. The `File` line under the card does not repeat the rename key:
+  `n` is in the footer at every width. On a short terminal the card
+  gives up lines first, then the search terms shrink to one line, and a very
+  short one drops the card, so the sources are never the part that is cut.
+  `i` opens `File details` with everything in the file, the description wrapped, in a view that
+  scrolls with the arrow keys and Page Up/Down when it is taller than the
+  terminal (the status line gives the position); Esc, `i` or Enter return. A
+  Z-Library name such as `Title (Author).epub` is usually cleaner than the
+  title inside the file, which often carries a marketing line, so the name's
+  title is used, with the file's own title offered as the other choice: press
+  `t` to switch. For a Chinese title the authors come from the side that writes
+  them in Chinese when only one does; otherwise from the file when it names
+  the same person, as a file name often adds the translator, and from the
+  file name when it does not. A title that is only a placeholder (`Unknown`,
+  a UUID, a long number) is not used, and an ISBN alone is not a title. The file's own ISBN is confirmed; an ISBN read from the copyright
+  page, recorded by a download or found in the file name is a hint. The file's
+  publisher and year rank editions of one title a little. A title read from
+  the name or the download is marked `a guess` and cannot by itself confirm a
+  hint ISBN; the file's own title, or one you edit, can. The terms and sources
+  come first on the page, so a short terminal still shows them. Space toggles a
+  source, `e` edits the terms, Enter searches and Esc leaves. `m` opens the
+  fields workbench on the file's own metadata with no lookup at all, to edit
+  any field by hand. Where the terminal can draw images (Kitty or Sixel), the
+  prepare page and the file details show the file's cover at the top right,
+  and the results show the highlighted match's, downloaded once per match. Ctrl+D saves the
+  sources that are on as the default (`ZLIB_METADATA_SOURCES` in the global
+  `.env`); nothing is saved unless you press it, and the page says so when the
+  environment or a `.env` in the working directory overrides it. A file with nothing to search
+  with opens on the editor.
+- **Looking up** shows the title, authors and ISBN being searched. Esc cancels
+  the request and returns to the page it started from.
+- **Candidates** list the matches of every source, best first. The answers of
+  different sources are not merged: each source has its own row or rows, so the
+  same book from three catalogues is three adjacent rows, each with only what
+  that catalogue says. On a terminal 100
+  columns wide or more the page puts the file beside the highlighted match
+  under the list, in the same two panels as the workbench (read only, and only
+  the fields either side has), so you compare before choosing. One line between
+  the list and the panels sums it up: the fields the match adds by name, then
+  how many more it offers to check (`≠` in the panel, not selected), and what
+  the format cannot store. It gives up names, then words, before it would cut
+  one off. Where the
+  terminal can draw images each panel starts with its cover, the file's on the
+  left and the match's on the right. The match's cover place is always there:
+  it says `loading…` while the image downloads (once per match, as soon as the
+  page can show it, also after a resize), `no cover` when the match has none and
+  `cover unavailable` when it cannot be fetched or read. The matches are in columns (match, title,
+  authors, year, source) that line up for wide characters too. On a narrower
+  terminal a details pane starts with what choosing the highlighted match would do to the file:
+  `Would add` names the empty fields it fills and selects, `Could add` empty
+  fields it offers unselected (the edition fields of a title-only or `ISBN?`
+  match), `Differs on` the values it would replace, which stay as they are
+  unless you select them, and `Cannot store` what the file's format has no
+  place for. Page Up and Page Down move a page of matches. Each row starts with a
+  five-cell marker: `ISBN` for an ISBN match, `ISBN?` when the ISBN matches but
+  the title is different or nothing independent vouches for it, or a percentage for a title match. The pane under the
+  list shows the selected match's details. Each row ends with its catalogue in
+  brackets, such as `[Goodreads]` or `[Google Books]`. The source column is as
+  wide as the longest name of any match, so a name is never cut and the column
+  does not move as the list scrolls; the title and the authors share what is
+  left. The details name the ISBN, or say `no ISBN listed` for an edition
+  without one, which is then a guess by title. A source that failed while others
+  answered is named on the status line. `e` edits what is searched for: the
+  title, authors (separated by `&`) and ISBNs (separated by commas), then
+  Enter searches again, Tab moves between the fields and Esc cancels. This
+  changes only the search, never the file. An ISBN you type counts as
+  confirmed, like `--isbn`; an ISBN the download or the book itself supplied
+  stays a hint while it is in the field, even if you retype it, and only a
+  different ISBN you type counts as confirmed. A hint confirms a match only
+  when the title searched agrees closely with the result's, so typing the
+  title of the book the hint names is how you say the file is that book, while
+  a different title leaves the match flagged. `s` goes back to the prepare page to
+  change the sources: Open Library, Google Books, Goodreads, Douban and WeRead, each with
+  `[x]` or `[ ]` and why it cannot be turned on (WeRead without
+  `ZLIB_WEREAD_API_KEY` says so, and the key is only reported as set or not
+  set, never shown). Esc there returns to these results with the choice as it
+  was. Esc on the results (or on the page that says nothing was found) itself
+  goes back a step, to the same prepare page with the terms and sources as they
+  were searched; Enter there searches again and Esc leaves, as the first time.
+  Unlike `s`, it keeps the results from being brought back. `q` and Ctrl+C
+  leave from the results at once. A source listed in `ZLIB_METADATA_SOURCES` shows as on, as the first
+  search used it, even when its key is missing and it can only report that; it
+  can be turned off but not back on without the key. While a search runs, Esc
+  returns to the page it started from. The choice applies to this session and
+  is saved only by Ctrl+D; the page says that WeRead sends each title to Tencent
+  under your account. WeRead cannot search by ISBN, so when it is on and the
+  search has no title the page says so.
+- **Rename** (`n` or `F2` on the prepare, results, no-match and fields pages)
+  shows the file's name now, the name it would get, whether that can be done
+  (`✓ ready`, `● this is the file's name now`, or `✗` with the reason, such as
+  a file with that name already existing), the format switch and where the name
+  comes from. The prepare and fields pages carry a `File` line with the same
+  before and after, so a name that does not say the book is visible before `n`
+  is pressed. `←`/`→` (or `h`/`l`, or `1` `2` `3`) switch the format between
+  `Title - Author`, `Author - Title` and `Title (Author)`; every row is
+  recomputed, and Ctrl+D saves the format as the default
+  (`ZLIB_FILENAME_FORMAT`). The names come from the search terms (the default:
+  read from the file name and the file, or as you edited them), from the file's
+  own embedded title, which often carries a marketing line, and from the
+  selected match (on the results and fields pages). The page starts on the
+  first name that would change something. A name that is already the file's, or
+  taken by another file, is marked and refused. `Type a
+  name…`, or `e` on any row, opens an editor on the name without its extension;
+  characters a file system rejects are replaced. Enter renames at once, never
+  over another file, and goes back to the page `n` was pressed on, with the
+  title and the sources unchanged. Fields written afterwards go to the file
+  under its new name, and the saved-file page of a download follows the rename,
+  so Send to Kindle and Send to WeRead use it. See
+  [Rename a file](metadata.md#rename-a-file) for how a name is built.
+- **Fields** is a workbench of every field the file's format can store: title,
+  title sort, authors, author sort, series, publisher, date, languages, tags,
+  ISBN, rating, description and cover, then any other catalogue ID the match
+  offers. On a terminal 100
+  columns wide or more it shows two panels side by side: `This file`, with
+  the value each field will be written with, and `Match`, with what the match
+  says, row for row. Where the terminal can draw images each panel starts
+  with its cover, the file's own beside the match's. On a narrower terminal
+  the same rows are a table with a `This file` and a `Match` column. Under
+  the panels the focused field is shown in full: what the file holds, what
+  will be written and what the match says. A description's markup is shown
+  as plain text, and written back as it was.
+
+  Each field is decided on its own. `→` (or `l`) takes the match's value,
+  Space switches between it and the file's, `←` (or `h`) keeps the file's,
+  `e` or Enter types a value, `x` clears the field, `a` takes the match for
+  every field it proposes (or for none), and `u` undoes every change. The
+  file's side marks each field that will change: `←` from the match, `✎`
+  typed, `✗` cleared; the match's side marks `✓` taken, `≠` different and
+  `=` the same as the file. What starts taken depends on the match: with
+  `ISBN`, the fields the file leaves empty; with a percentage (a title match),
+  the empty fields that describe the book, while publisher, date, language and
+  identifiers, which differ between editions, wait for you under a warning;
+  with `ISBN?`, nothing. A value the file already has is only replaced when
+  you take or type another; a new title or new authors keep the file's sort
+  forms unless you change those too. Tags are separated by commas and authors
+  by `&`, so a tag or a name that contains one is split when it is edited. Typing is checked per field: authors separated by
+  `&`, languages and tags by commas, a date written `2008`, `2008-01` or
+  `2008-01-05`, an ISBN with a correct check digit, a series as `Name #2`.
+  The description opens a text area where Enter starts a new line and Ctrl+S
+  keeps the text; the cover asks for the path of a JPEG, PNG, GIF or WebP
+  image. A title cannot be cleared, nor the identifier an EPUB names as its unique
+  identifier, which the format requires; give it another value instead. A
+  rating is 0 to 5 stars in halves. Ctrl+S writes every changed field (a
+  match's cover is the image the preview downloaded, or is downloaded then);
+  the status line lists them. Esc goes back, and asks first when changes are
+  not written. Fields the format cannot store are named on the status line.
+- **Failures** stay on the page. When nothing matched, or no source could be
+  reached, the page names why; `r` retries and `e` changes the search first. A
+  file with no title, author or ISBN opens on the search editor instead of being
+  refused, and `r` there asks what to search for rather than sending nothing.
+  The key hints on every page of the lookup shrink with the width, from full
+  labels to shorter ones to the keys alone, so Esc stays visible. A write error
+  keeps the field choices so Ctrl+S can be pressed again.
+
+A match with a cover adds a `Cover` row, preselected only when the file has none.
+Applying downloads the image first; a failed download writes nothing and is
+reported on the page. The saved-file page after a download offers **Fix metadata**
+for every format `zlib meta` reads. It opens the same page, adds the Z-Library
+record's ISBN to the search, and returns to the saved file with the outcome.
+
+The lookup starts in `Init`, once however often `Init` runs, and a late answer
+to a lookup the user already left is ignored. `zlib meta` with no file or only
+`--fetch` opens the same file picker as `/meta` on a terminal, and
+`zlib meta <file> --fetch` opens the page itself; with `--json`, `-t`, `-a` or `--isbn`, or when
+output is redirected, it prints the candidates instead.
+
+The QR code is drawn with half-block characters, two modules per cell: one
+column and half a row per module, so modules are square on a terminal whose
+cells are twice as tall as wide. The white panel has as many modules across as
+down, with the code centered to within one module. The quiet zone is 4 modules
+as the QR specification asks, reduced to 3 or 2 when the terminal is too small,
+which lets a standard 80×24 terminal show the whole code. The code is encoded
+at error-correction level L, which needs fewer modules than M and is enough on
+a screen. Where the terminal is wide enough, the steps (scan, then confirm on
+the phone) appear beside the code with done, current and pending marks;
+otherwise the code is centered and the status line carries the instruction. If
+even the smallest panel does not fit, the page names the size it needs and
+draws no part of the code.
+
+WeRead imports check format and size before the confirmation, which names the
+file size and the target account. The progress page lists Prepare upload, Upload
+file and Add to shelf with a done, current or pending mark; the current step
+shows the progress bar or the check count. Esc cancels and waits for WeRead to
+confirm the cancellation; Ctrl+C then stops waiting. The result page names the
+book ID and account, and says **Already in WeRead** when WeRead kept an existing
+copy. An unconfirmed import opens an error page titled **WeRead import not
+confirmed**. On the saved-file page, delivery outcomes appear in the success or
+error color. The settings account page puts its status and actions first and
+adds the import rules only when they fit.
+
+Crush revision: `f49b28113b3bab3fcfe193676cc3f7fb858d6411`.
+Compare against a local clone of
+[charmbracelet/crush](https://github.com/charmbracelet/crush) (`<crush-checkout>`).
+Check its current HEAD before comparing code with the revision above.
+The implementation uses Bubbles v2, Huh v2 and Lip Gloss v2, with interaction patterns
+from Crush's `internal/ui/dialog/models.go`, `filepicker.go`, `inline_editor.go`,
+`dialog.go`, `internal/ui/list/list.go` and `internal/ui/model/status.go`.
+Crush internal packages are not imported or copied.
+
+- `tui_layout.go`: terminal-sized screen layout, selected rows and Bubbles help.
+- `tui_form.go`, `tui_inline_form.go`: field lists, masked text input, validation
+  and Huh format checkboxes in the inline search form.
+- `tui_filepicker.go` and `book_file_list.go`: the folder list that hides unsupported files (the Bubbles file picker can only grey them out), path input and send confirmation.
+- `book_feed_view.go`: shared book list for search, recommendations, popular,
+  favorites and history.
+- `confirmation.go`: modal overlay with Cancel selected by default.
+
+## Verification
+
+Automated tests cover Unicode and paste, masked passwords, invalid inputs,
+clearing format filters, cancellation, list retry, modal actions and dimensions
+from 20×5 to 120×30. Small windows preserve controls or request more space.
+
+The terminal walkthrough uses local fixtures and an HTTP server. It covers
+recommendations, popular books, saved pagination, search refinement, history
+confirmation, domain selection, download directory, Kindle file confirmation and
+a 1 MiB download. It never contacts Z-Library or sends SMTP mail.
+
+```powershell
+go test -c ./internal/cli -o "$env:TEMP/zlib-tui-smoke.exe"
+$env:ZLIB_TUI_SMOKE = '1'
+& "$env:TEMP/zlib-tui-smoke.exe" '-test.run=^TestTUIWalkthrough$' '-test.v'
+```
+
+The walkthrough was run in a Windows terminal. Login masking and cancellation,
+search query/format editing, theme preview/cancellation and isolated Kindle and
+retry-setting saves were also exercised through `zlib.exe`.

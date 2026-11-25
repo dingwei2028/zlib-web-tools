@@ -1,0 +1,18 @@
+# Z-Library accounts for rotation - one per line.
+# Format:  email | remix_userid | remix_userkey
+# Cookie is like a password: keep this file private, never share it.
+#
+# Lines starting with # and blank lines are ignored.
+# Before each download the account's daily quota is checked; when one runs out
+# of quota (or fails), the next account with quota left is used automatically.
+#
+# The first account below is pre-filled from your current login.
+# Add your other accounts the same way, one per line:
+#   other@example.com | 1234567 | abcdef0123456789
+#
+# How to get the two cookie values for each account:
+#   log in to z-library in a separate browser profile > F12 > Application >
+#   Cookies > copy remix_userid and remix_userkey.
+
+# Add your own accounts below, one per line:
+# email | remix_userid | remix_userkey

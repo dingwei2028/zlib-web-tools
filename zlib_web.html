@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zlib 批量搜索</title>
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --border: #e3e6ee;
+    --accent: #2563eb;
+    --accent-soft: #eaf1ff;
+    --ok: #15803d;
+    --ok-soft: #eaf8ef;
+    --warn: #b45309;
+    --warn-soft: #fff7e6;
+    --error: #b91c1c;
+    --error-soft: #fdecec;
+    --shadow: 0 1px 3px rgba(20, 30, 60, .06), 0 8px 24px rgba(20, 30, 60, .04);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 28px;
+  }
+  header h1 { margin: 0; font-size: 21px; letter-spacing: .2px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { max-width: 1180px; margin: 0 auto; padding: 22px 28px 60px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  textarea, input[type="number"], input[type="text"], select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 11px;
+    background: #fff;
+    color: var(--text);
+    font: inherit;
+    outline: none;
+  }
+  textarea:focus, input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  textarea { resize: vertical; min-height: 120px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  button {
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 16px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: wait; }
+  button.ghost { background: #eef1f7; color: var(--text); }
+  button.mini { padding: 4px 9px; font-size: 12px; background: #eef1f7; color: var(--text); }
+  button.dl { padding: 4px 10px; font-size: 12px; background: var(--accent); color: #fff; }
+  button.dl.alt { background: #eef1f7; color: var(--text); }
+  .dl-box { white-space: nowrap; }
+  .dl-actions { display: flex; gap: 5px; }
+  .dl-status { margin-top: 4px; font-size: 11px; max-width: 190px; white-space: normal; }
+  .dl-status.ok { color: var(--ok); }
+  .dl-status.error { color: var(--error); }
+  .dl-status.pending { color: var(--muted); }
+  .notice { border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .notice.ok { background: var(--ok-soft); color: var(--ok); }
+  .notice.warn { background: var(--warn-soft); color: var(--warn); }
+  .notice.error { background: var(--error-soft); color: var(--error); }
+  .quota-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; }
+  .quota-head strong { font-size: 13px; }
+  .quota-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin-top: 8px; }
+  .quota-item { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: #fff; }
+  .quota-item .mail { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+  .quota-item .num { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .quota-bar { height: 5px; border-radius: 99px; background: #eef1f7; margin-top: 6px; overflow: hidden; }
+  .quota-bar > i { display: block; height: 100%; background: var(--ok); }
+  .quota-bar.empty > i { background: var(--error); }
+  .pill.done { background: var(--ok-soft); color: var(--ok); font-size: 11px; white-space: nowrap; }
+  a.author-link { cursor: pointer; }
+  .row { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .mono { font-family: ui-monospace, Consolas, monospace; word-break: break-all; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .card-head h3 { margin: 0; font-size: 16px; display: inline; }
+  .idx { color: var(--muted); font-size: 12px; margin-right: 8px; }
+  .pill { border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.bad { background: var(--error-soft); color: var(--error); }
+  .table-wrap { overflow-x: auto; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 900px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+  th { color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  col.col-cover { width: 48px; }
+  col.col-title { width: 38%; }
+  col.col-author { width: 17%; }
+  col.col-year { width: 48px; }
+  col.col-format { width: 60px; }
+  col.col-size { width: 68px; }
+  col.col-rating { width: 44px; }
+  col.col-download { width: 112px; }
+  col.col-detail { width: 44px; }
+  .title { font-weight: 600; }
+  .cover { width: 42px; height: 58px; object-fit: cover; border-radius: 4px; display: block; }
+  .cover.placeholder { display: flex; align-items: center; justify-content: center; background: #f0f2f7; font-size: 18px; }
+  .tag { background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 1px 6px; font-size: 12px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .loading { color: var(--muted); padding: 24px; text-align: center; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 10px; }
+  code { background: #eef1f7; border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, Consolas, monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Z-Library 批量搜索</h1>
+  <p>每行输入一个关键词（书名、作者都行），一次搜完，点结果里的「下载」直接保存到系统「下载」文件夹。域名自动跟随，下载自动轮换账号。所有请求都在本机执行，不经过第三方服务器。</p>
+</header>
+
+<main>
+  <section class="panel" id="statusPanel">
+    <div class="loading">正在检查登录状态…</div>
+  </section>
+
+  <section class="panel">
+    <label for="books">搜索关键词（每行一个；书名、作者都可以）</label>
+    <textarea id="books" placeholder="每行一个，例如：&#10;马斯克的钢铁侠&#10;作者:阿什利·万斯&#10;title:Dune"></textarea>
+    <div class="small muted" style="margin-top:6px">可直接写作者名，也可在行首加 <code>作者:</code> / <code>书名:</code> / <code>出版社:</code> / <code>ISBN:</code> 指定字段；下方「搜索字段」会给没加前缀的行统一加。</div>
+    <div class="grid">
+      <div>
+        <label for="field">搜索字段（可选）</label>
+        <select id="field">
+          <option value="">通用（书名/作者/ISBN 等）</option>
+          <option value="title:">书名</option>
+          <option value="author:">作者</option>
+          <option value="publisher:">出版社</option>
+          <option value="isbn:">ISBN</option>
+          <option value="doi:">DOI</option>
+          <option value="md5:">MD5</option>
+        </select>
+      </div>
+      <div>
+        <label for="count">每本返回条数</label>
+        <input id="count" type="number" value="5" min="1" max="100">
+      </div>
+      <div>
+        <label for="page">页码</label>
+        <input id="page" type="number" value="1" min="1">
+      </div>
+      <div>
+        <label for="ext">格式筛选（可选，逗号分隔）</label>
+        <input id="ext" type="text" value="epub" placeholder="epub,pdf，留空表示全部">
+      </div>
+    </div>
+    <div class="actions">
+      <button id="searchBtn">开始搜索</button>
+      <button id="clearBtn" class="ghost">清空结果</button>
+    </div>
+    <div class="notice warn" style="margin-top:12px">下载会消耗账号每日配额：<strong>解析链接时就扣 1 本</strong>，即使后面传输失败也照扣。如果「下载」报 403 IP 封锁，可点「浏览器」用另一个网络路径试试。</div>
+  </section>
+
+  <section id="results"></section>
+</main>
+
+<footer>zlib 本地网页 · 关闭启动窗口即停止服务</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const LOGIN_BAT = 'C:\\GitHub\\zlib\\login_and_test.bat';
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function safeUrl(value) {
+  try {
+    const u = new URL(String(value));
+    return ['http:', 'https:'].includes(u.protocol) ? u.href : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function coverFallback(img) {
+  const box = document.createElement('div');
+  box.className = 'cover placeholder';
+  box.textContent = '📚';
+  img.replaceWith(box);
+}
+
+const FIELD_PREFIX = {
+  '书名': 'title:', '作者': 'author:', '出版社': 'publisher:',
+  'isbn': 'isbn:', 'doi': 'doi:', 'md5': 'md5:'
+};
+
+function buildQuery(line, selectedPrefix) {
+  const s = String(line).trim();
+  const m = s.match(/^(书名|作者|出版社|isbn|doi|md5)\s*[:：]\s*(.+)$/i);
+  if (m) return FIELD_PREFIX[m[1].toLowerCase()] + m[2].trim();
+  if (/^(title|author|publisher|isbn|doi|md5)\s*:/i.test(s)) return s;
+  return (selectedPrefix || '') + s;
+}
+
+// Author strings from the API often bundle nationality tags, co-authors and
+// translators. Keep the first credited name so an author click searches a
+// single person instead of the whole messy cell.
+function cleanAuthorName(raw) {
+  let s = String(raw || '').trim();
+  s = s.split(/[;；]|\s*&\s*|\s*\/\s*|\s*·\s*|, |，/)[0].trim();
+  s = s.replace(/^[\[\(（][^\]\)）]{1,10}[\]\)）]\s*/, '').trim();
+  s = s.replace(/(著|译|主编|编|校|整理|注|绘|口述|执笔|选编|编译|插图|摄影).*$/, '').trim();
+  s = s.replace(/[\s,，;；:：。]+$/, '').trim();
+  return s;
+}
+
+function searchByAuthor(raw) {
+  const name = cleanAuthorName(raw);
+  if (!name) return;
+  $('field').value = '';
+  $('books').value = '作者:' + name;
+  runSearch();
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+}
+
+function isLocalBackend() {
+  const port = Number(location.port);
+  return location.hostname === '127.0.0.1' && port >= 18765 && port <= 18775;
+}
+
+function backendHint(prefix) {
+  return '<div class="notice warn">' + esc(prefix) +
+    '当前页面不是由 <code>start_web.bat</code> 启动的本地服务提供，无法调用 zlib。' +
+    '请双击 <code>C:\\GitHub\\zlib\\start_web.bat</code>，等浏览器自动打开后再使用；' +
+    '如果没自动打开，请手动访问控制台显示的地址（通常是 http://127.0.0.1:18765/）。</div>';
+}
+
+async function loadStatus() {
+  try {
+    const resp = await fetch('/api/status');
+    const s = await resp.json();
+    let html = '<div class="row"><strong>zlib ' + esc(s.version) + '</strong>' +
+      '<span class="small mono muted">' + esc(s.exe) + '</span></div>' +
+      '<div class="small muted" style="margin-top:4px">下载文件夹：<code>' +
+      esc(s.download_dir || '(未知)') + '</code></div>';
+
+    if (!s.session_exists) {
+      html += '<div class="notice warn">尚未登录。请先双击 <code>' + esc(LOGIN_BAT) +
+        '</code> 完成登录，再回来搜索。<br><button id="copyLogin" class="mini" style="margin-top:8px">复制登录批处理路径</button></div>';
+    } else if (s.profile_error) {
+      html += '<div class="notice warn">发现会话文件，但账号校验失败：' + esc(s.profile_error) +
+        '。请重新运行登录批处理。</div>';
+    } else {
+      const p = s.profile || {};
+      html += '<div class="notice ok">已登录：' + esc(p.email || p.name || '账号会话正常') +
+        '<br><span class="small">Cookie 为账号级，域名自动跟随；当前可用：' +
+        esc(s.active_domain || '搜索时自动探测') +
+        (s.domain_pinned ? '（已手动固定域名）' : '') + '</span></div>';
+    }
+    html += '<div id="quotaBox" style="margin-top:12px"><div class="small muted">正在读取账号池配额…</div></div>';
+    $('statusPanel').innerHTML = html;
+    const btn = $('copyLogin');
+    if (btn) btn.addEventListener('click', () => copyText(LOGIN_BAT));
+    loadQuotas();
+  } catch (e) {
+    $('statusPanel').innerHTML = !isLocalBackend()
+      ? backendHint('页面打开方式不对。')
+      : '<div class="notice error">状态检查失败：' + esc(e.message) + '</div>';
+  }
+}
+
+async function loadQuotas(refresh) {
+  const box = $('quotaBox');
+  if (!box) return;
+  try {
+    const resp = await fetch('/api/quotas' + (refresh ? '?refresh=1' : ''));
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || '读取失败');
+    const accounts = data.accounts || [];
+    const total = accounts.reduce((n, a) => n + (a.ok ? (a.remaining || 0) : 0), 0);
+    let html = '<div class="quota-head"><strong>账号池今日配额 · 共剩 ' + total + ' 本</strong>' +
+      '<button id="refreshQuota" class="mini"' + (data.cached ? ' title="显示的是缓存，点此强制刷新"' : '') + '>刷新</button></div>';
+    if (!accounts.length) {
+      html += '<div class="small muted">accounts.txt 里还没有账号，下载会无法轮换。</div>';
+    } else {
+      html += '<div class="quota-grid">' + accounts.map((a) => {
+        if (!a.ok) {
+          return '<div class="quota-item"><div class="mail">' + esc(a.email || '(未知账号)') +
+            '</div><div class="num" style="color:var(--error)">' + esc(a.error || '读取失败') + '</div></div>';
+        }
+        const used = Number(a.used || 0);
+        const limit = Number(a.limit || 0);
+        const left = Number(a.remaining || 0);
+        const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 100;
+        const short = String(a.email || '').split('@')[0];
+        return '<div class="quota-item"><div class="mail">' + esc(short) + '</div>' +
+          '<div class="num">已用 ' + esc(used) + ' / ' + esc(limit) + ' · 剩 <strong style="color:' +
+          (left > 0 ? 'var(--ok)' : 'var(--error)') + '">' + esc(left) + '</strong> 本</div>' +
+          '<div class="quota-bar' + (left <= 0 ? ' empty' : '') + '"><i style="width:' + pct + '%"></i></div></div>';
+      }).join('') + '</div>';
+    }
+    box.innerHTML = html;
+    const rb = $('refreshQuota');
+    if (rb) rb.addEventListener('click', () => {
+      rb.disabled = true;
+      rb.textContent = '读取中…';
+      box.innerHTML = '<div class="small muted">正在读取账号池配额…</div>';
+      const target = document.createElement('div');
+      target.id = 'quotaBox';
+      box.replaceWith(target);
+      loadQuotas(true);
+    });
+  } catch (e) {
+    box.innerHTML = '<div class="small" style="color:var(--error)">配额读取失败：' + esc(e.message || e) + '</div>' +
+      '<button id="refreshQuota" class="mini" style="margin-top:6px">重试</button>';
+    const rb = $('refreshQuota');
+    if (rb) rb.addEventListener('click', () => {
+      const target = document.createElement('div');
+      target.id = 'quotaBox';
+      box.replaceWith(target);
+      loadQuotas(true);
+    });
+  }
+}
+
+function renderResults(results) {
+  $('results').innerHTML = results.map((r, idx) => {
+    const head = '<div class="card-head"><div><span class="idx">#' + (idx + 1) + '</span><h3>' +
+      esc(r.query) + '</h3></div><span class="pill ' + (r.ok ? 'ok' : 'bad') + '">' +
+      (r.ok ? '成功' : '失败') + '</span></div>';
+
+    if (!r.ok) {
+      return '<article class="card">' + head + '<div class="notice error">' + esc(r.error || '未知错误') + '</div></article>';
+    }
+
+    const meta = '<div class="muted small" style="margin-top:6px">第 ' + esc(r.page) + ' / ' +
+      esc(r.total_pages || '?') + ' 页 · 返回 ' + r.books.length + ' 条</div>';
+    if (!r.books.length) {
+      return '<article class="card">' + head + meta + '<div class="notice">没有找到结果，换个关键词试试。</div></article>';
+    }
+
+    const rows = r.books.map((b) => {
+      const url = safeUrl(b.url);
+      const cover = safeUrl(b.cover);
+      const coverHtml = cover
+        ? '<img class="cover" src="/api/cover?url=' + encodeURIComponent(cover) + '" alt="" onerror="coverFallback(this)">'
+        : '<div class="cover placeholder">📚</div>';
+      const authors = (b.authors || []).map((a) => {
+        const name = cleanAuthorName(a);
+        return name ? '<a class="author-link" data-author="' + esc(name) +
+          '" title="点击按作者搜索：' + esc(name) + '">' + esc(a) + '</a>' : esc(a);
+      }).join('、');
+      const id = String(b.id || '');
+      const link = url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener">打开</a>' : '-';
+      return '<tr>' +
+        '<td>' + coverHtml + '</td>' +
+        '<td><div class="title">' + esc(b.name || '(无书名)') + '</div><div class="small muted">' + esc(b.publisher || '') + '</div></td>' +
+        '<td>' + (authors || '-') + '</td>' +
+        '<td>' + esc(b.year || '-') + '</td>' +
+        '<td><span class="tag">' + esc(String(b.extension || '-').toUpperCase()) + '</span></td>' +
+        '<td>' + esc(b.size || '-') + '</td>' +
+        '<td>' + esc(b.rating || '-') + '</td>' +
+        '<td class="dl-box">' +
+          (b.downloaded
+            ? '<span class="pill done" title="' + esc(b.downloaded_path || '已在下载目录') + '">✓ 已下载</span>'
+            : '<div class="dl-actions">' +
+              '<button class="mini dl" data-id="' + esc(id) + '" data-name="' + esc(b.name || '') +
+                '" data-ext="' + esc(String(b.extension || '')) + '" data-mode="direct">下载</button>' +
+              '<button class="mini dl alt" data-id="' + esc(id) + '" data-name="' + esc(b.name || '') +
+                '" data-ext="' + esc(String(b.extension || '')) + '" data-mode="browser">浏览器</button>' +
+              '</div>') +
+        '<div class="small dl-status mono">' + esc(id || '-') + '</div></td>' +
+        '<td>' + link + '</td>' +
+        '</tr>';
+    }).join('');
+
+    return '<article class="card">' + head + meta +
+      '<div class="table-wrap"><table>' +
+      '<colgroup><col class="col-cover"><col class="col-title"><col class="col-author"><col class="col-year"><col class="col-format"><col class="col-size"><col class="col-rating"><col class="col-download"><col class="col-detail"></colgroup>' +
+      '<thead><tr>' +
+      '<th>封面</th><th>书名</th><th>作者</th><th>年份</th><th>格式</th><th>大小</th><th>评分</th><th>下载</th><th>详情</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div></article>';
+  }).join('');
+}
+
+async function downloadBook(btn) {
+  if (!isLocalBackend()) {
+    alert('请双击 start_web.bat 启动本地服务后再下载。');
+    return;
+  }
+  const id = btn.dataset.id || '';
+  const mode = btn.dataset.mode || 'direct';
+  if (!id) { alert('这本书没有可用的下载 ID'); return; }
+
+  const box = btn.closest('td.dl-box');
+  const status = box ? box.querySelector('.dl-status') : null;
+  const buttons = box ? box.querySelectorAll('button.dl') : [];
+  const setStatus = (text, cls) => {
+    if (!status) return;
+    status.textContent = text;
+    status.className = 'small dl-status mono ' + (cls || '');
+  };
+  buttons.forEach((b) => { b.disabled = true; });
+  setStatus(mode === 'browser' ? '正在解析链接…' : '正在下载…', 'pending');
+
+  try {
+    const resp = await fetch('/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: id,
+        mode: mode,
+        name: btn.dataset.name || '',
+        ext: btn.dataset.ext || ''
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.error || '下载失败');
+    if (data.already) {
+      setStatus('已下载，跳过（未消耗配额）', 'ok');
+      if (status && data.path) status.title = data.path;
+      return;
+    }
+    if (mode === 'browser') {
+      setStatus('已交给浏览器下载', 'ok');
+      const a = document.createElement('a');
+      a.href = data.link;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } else {
+      const parts = String(data.path).split(/[\\/]/);
+      setStatus('已保存：' + parts[parts.length - 1], 'ok');
+      if (status) status.title = data.path;
+    }
+  } catch (e) {
+    setStatus(String(e.message || e).slice(0, 140), 'error');
+  } finally {
+    buttons.forEach((b) => { b.disabled = false; });
+  }
+}
+
+async function runSearch() {
+  if (!isLocalBackend()) {
+    $('results').innerHTML = backendHint('搜索不可用。');
+    return;
+  }
+  const prefix = $('field').value;
+  const queries = $('books').value.split(/\r?\n/)
+    .map((s) => buildQuery(s, prefix)).filter(Boolean);
+  if (!queries.length) { alert('请至少输入一个关键词'); return; }
+
+  const btn = $('searchBtn');
+  btn.disabled = true;
+  btn.textContent = '搜索中…';
+  $('results').innerHTML = '<div class="loading">正在搜索 ' + queries.length + ' 个关键词，请稍候…</div>';
+
+  try {
+    const resp = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        queries: queries,
+        count: Number($('count').value) || 5,
+        page: Number($('page').value) || 1,
+        ext: $('ext').value
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || '请求失败');
+    renderResults(data.results);
+  } catch (e) {
+    $('results').innerHTML = !isLocalBackend()
+      ? backendHint('搜索不可用。')
+      : '<div class="notice error">搜索失败：' + esc(e.message) + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '开始搜索';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Browsers restore form values on soft reload; force the requested defaults.
+  $('books').value = '';
+  $('ext').value = 'epub';
+  $('field').value = '';
+  loadStatus();
+  $('searchBtn').addEventListener('click', runSearch);
+  $('clearBtn').addEventListener('click', () => { $('results').innerHTML = ''; });
+  $('results').addEventListener('click', (e) => {
+    const author = e.target.closest('a.author-link');
+    if (author) {
+      e.preventDefault();
+      searchByAuthor(author.dataset.author || author.textContent);
+      return;
+    }
+    const btn = e.target.closest('button.dl');
+    if (btn) downloadBook(btn);
+  });
+});
+</script>
+</body>
+</html>

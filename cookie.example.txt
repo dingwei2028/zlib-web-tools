@@ -1,0 +1,15 @@
+# Z-Library Cookie - account level, works on ANY official domain.
+# Cookie is like a password: keep this file private, never share it.
+#
+# Fill in the two values after the = signs, save, done.
+# No login, no import, no domain change needed.
+#
+# How to get the values:
+#   1. Open z-library in your browser while logged in
+#   2. Press F12 > Application (or Storage) > Cookies > the site domain
+#   3. Find remix_userid and remix_userkey, copy their values here
+#
+# Lines starting with # are comments and are ignored.
+
+remix_userid=
+remix_userkey=

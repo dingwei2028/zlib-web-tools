@@ -1,0 +1,68 @@
+package cli
+
+import (
+	"image/color"
+	"strings"
+
+	"charm.land/lipgloss/v2"
+)
+
+const (
+	symbolSuccess = "✓"
+	symbolError   = "✗"
+	symbolInfo    = "→"
+)
+
+// themed color helpers — resolve from currentTheme at call time so theme
+// switching takes effect even after init.
+func colorCyanFn(s string) string {
+	return lipgloss.NewStyle().Foreground(currentTheme.Info).Render(s)
+}
+func colorFaintFn(s string) string {
+	return lipgloss.NewStyle().Foreground(currentTheme.Muted).Render(s)
+}
+func colorBoldFn(s string) string {
+	return lipgloss.NewStyle().Bold(true).Render(s)
+}
+func colorGreenFn(s string) string {
+	return lipgloss.NewStyle().Foreground(currentTheme.Success).Render(s)
+}
+func colorRedFn(s string) string {
+	return lipgloss.NewStyle().Foreground(currentTheme.Error).Render(s)
+}
+
+var (
+	colorCyan  = colorCyanFn
+	colorFaint = colorFaintFn
+	colorBold  = colorBoldFn
+	colorGreen = colorGreenFn
+	colorRed   = colorRedFn
+)
+
+// extLipglossColor returns the color.Color for a file extension.
+func extLipglossColor(ext string) color.Color {
+	switch strings.ToUpper(strings.TrimSpace(ext)) {
+	case "EPUB":
+		return currentTheme.ExtEPUB
+	case "PDF":
+		return currentTheme.ExtPDF
+	case "MOBI", "AZW", "AZW3":
+		return currentTheme.ExtMOBI
+	case "FB2", "DJVU", "DJV":
+		return currentTheme.ExtFB2
+	default:
+		return currentTheme.Info
+	}
+}
+
+// remainingColor returns the appropriate color for remaining download quota.
+func remainingColor(remaining int) color.Color {
+	switch {
+	case remaining <= 0:
+		return currentTheme.Error
+	case remaining <= 3:
+		return currentTheme.Warning
+	default:
+		return currentTheme.Success
+	}
+}

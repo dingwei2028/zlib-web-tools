@@ -1,0 +1,270 @@
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"time"
+
+	"charm.land/lipgloss/v2"
+	"github.com/heartleo/zlib/internal/zlib"
+	"github.com/spf13/cobra"
+	"golang.org/x/mod/semver"
+)
+
+const goInstallPackage = "github.com/heartleo/zlib/cmd/zlib@latest"
+
+var updateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Update zlib to the latest release",
+	Long:  "Update zlib through the channel that installed it: Homebrew, winget, go install, or a release download.",
+	Args:  cobra.NoArgs,
+	RunE:  runUpdate,
+}
+
+type updateMethod string
+
+const (
+	updateRelease updateMethod = "release"
+	updateBrew    updateMethod = "brew"
+	updateWinget  updateMethod = "winget"
+	updateGo      updateMethod = "go"
+)
+
+func runUpdate(cmd *cobra.Command, _ []string) error {
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("find running executable: %w", err)
+	}
+	executable, err = filepath.EvalSymlinks(executable)
+	if err != nil {
+		return fmt.Errorf("resolve running executable: %w", err)
+	}
+
+	out := cmd.OutOrStdout()
+	method := detectUpdateMethod(cmd.Context(), executable)
+	if method != updateRelease {
+		return runToolUpdate(cmd.Context(), cmd.InOrStdin(), out, cmd.ErrOrStderr(), method, executable, zlib.Version)
+	}
+
+	currentVersion := zlib.Version
+	if !semver.IsValid(currentVersion) {
+		return fmt.Errorf("cannot update a development build (%s); install a release or update the source checkout", zlib.Version)
+	}
+	return runReleaseUpdate(cmd.Context(), cmd.InOrStdin(), out, isInteractive(), newReleaseUpdater(), executable, currentVersion)
+}
+
+// runUpdateCommand runs a package manager with the terminal attached, so its
+// own progress bars and prompts keep working. A variable so tests can stub it.
+var runUpdateCommand = func(ctx context.Context, in io.Reader, out, errOut io.Writer, name string, args []string) error {
+	process := exec.CommandContext(ctx, name, args...)
+	process.Stdin, process.Stdout, process.Stderr = in, out, errOut
+	return process.Run()
+}
+
+// runToolUpdate updates through a package manager, passes its output through,
+// then reports the version change the way the release update does. A package
+// manager exits 0 when the version is already current, so the finished
+// command alone does not say whether anything changed.
+func runToolUpdate(ctx context.Context, in io.Reader, out, errOut io.Writer, method updateMethod, executable, current string) error {
+	name, args := updateCommand(method)
+	lipgloss.Fprintf(out, "Updating zlib with %s %s\n", name, colorFaint("("+name+" "+strings.Join(args, " ")+")"))
+	start := time.Now()
+	if err := runUpdateCommand(ctx, in, out, errOut, name, args); err != nil {
+		if method == updateBrew {
+			lipgloss.Fprint(errOut, brewRenameNotice(executable))
+		}
+		return fmt.Errorf("%s update failed: %w", name, err)
+	}
+	lipgloss.Fprintf(out, "%s %s finished %s\n", colorGreen(symbolSuccess), name, colorFaint("in "+formatElapsed(time.Since(start))))
+
+	after, ok := installedVersion(ctx, method, executable)
+	if !ok {
+		lipgloss.Fprintln(out, colorFaint("Run `zlib version` to confirm."))
+		return nil
+	}
+	printUpdateSummary(out, current, updateResult{version: after, updated: after != current}, semver.Compare(current, after) > 0)
+	return nil
+}
+
+// installedVersion asks the installed zlib for its version after an update. A
+// variable so tests can stub it.
+var installedVersion = func(ctx context.Context, method updateMethod, executable string) (string, bool) {
+	onPath := ""
+	if found, err := exec.LookPath("zlib"); err == nil {
+		onPath = found
+		if method == updateBrew {
+			// Only a zlib that lives in a Homebrew keg was moved by the upgrade;
+			// any other zlib on PATH says nothing about it.
+			if resolved, err := filepath.EvalSymlinks(found); err != nil || !isHomebrewKeg(resolved) {
+				onPath = ""
+			}
+		}
+	}
+	for _, candidate := range versionProbeOrder(method, executable, onPath) {
+		probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		output, err := exec.CommandContext(probeCtx, candidate, "version").Output()
+		cancel()
+		if err != nil {
+			continue
+		}
+		if version, ok := parseInstalledVersion(string(output)); ok {
+			return version, true
+		}
+	}
+	return "", false
+}
+
+// versionProbeOrder lists the executables to ask for the version after an
+// update, best answer first. Go and winget replace the file in place, so the
+// running executable is the one to ask. Homebrew can keep the old keg
+// (HOMEBREW_NO_INSTALL_CLEANUP), so the running executable may still report
+// the old version, while the symlink on PATH points at the upgraded keg; when
+// the old keg was cleaned up the executable is gone and the probe moves on.
+func versionProbeOrder(method updateMethod, executable, onPath string) []string {
+	if onPath == "" || onPath == executable {
+		return []string{executable}
+	}
+	if method == updateBrew {
+		return []string{onPath, executable}
+	}
+	return []string{executable, onPath}
+}
+
+// parseInstalledVersion reads "zlib version v0.0.14" and returns the version.
+func parseInstalledVersion(output string) (string, bool) {
+	fields := strings.Fields(output)
+	if len(fields) < 3 || fields[0] != "zlib" || fields[1] != "version" || !semver.IsValid(fields[2]) {
+		return "", false
+	}
+	return fields[2], true
+}
+
+// runReleaseUpdate replaces executable with the latest release asset, showing
+// live progress on a terminal and one line per step elsewhere.
+func runReleaseUpdate(ctx context.Context, in io.Reader, out io.Writer, interactive bool, u releaseUpdater, executable, current string) error {
+	var result updateResult
+	var err error
+	if interactive {
+		result, err = runInteractiveUpdate(ctx, in, out, u, executable, current, runtime.GOOS, runtime.GOARCH)
+	} else {
+		// Without the TUI, Ctrl+C would kill the process before the updater
+		// removes its temporary archive and staged binary.
+		signalCtx, stop := signal.NotifyContext(ctx, os.Interrupt)
+		defer stop()
+		result, err = runPlainUpdate(signalCtx, out, u, executable, current, runtime.GOOS, runtime.GOARCH)
+	}
+	if err != nil {
+		return err
+	}
+	printUpdateSummary(out, current, result, semver.Compare(current, result.version) > 0)
+	return nil
+}
+
+func updateCommand(method updateMethod) (string, []string) {
+	switch method {
+	case updateBrew:
+		return "brew", []string{"upgrade", "heartleo/tap/zlib-cli"}
+	case updateWinget:
+		return "winget", []string{"upgrade", "--id", "heartleo.zlib", "--exact"}
+	case updateGo:
+		return "go", []string{"install", goInstallPackage}
+	default:
+		return "", nil
+	}
+}
+
+// isHomebrewKeg reports whether path is inside a zlib-cli keg, or the keg of
+// the zlib formula it replaced (homebrew/core's zlib is a library with no zlib
+// executable, so that directory cannot hold another program).
+func isHomebrewKeg(path string) bool {
+	p := strings.ToLower(strings.ReplaceAll(path, `\`, "/"))
+	return strings.Contains(p, "/cellar/zlib-cli/") || strings.Contains(p, "/cellar/zlib/")
+}
+
+// isOldFormulaKeg reports whether path is inside the keg of the retired zlib
+// formula. homebrew/core's zlib is a library with no zlib executable, so a copy
+// of this program in that keg always comes from the old formula.
+func isOldFormulaKeg(path string) bool {
+	return strings.Contains(strings.ToLower(strings.ReplaceAll(path, `\`, "/")), "/cellar/zlib/")
+}
+
+// brewRenameNotice tells a copy installed from the retired zlib formula how to
+// move to zlib-cli. Homebrew cannot do it: the upgrade names zlib-cli, which is
+// not installed. Anyone else gets nothing, because "brew uninstall zlib" would
+// remove homebrew/core's library for a zlib-cli user who also has it. The grep
+// keeps the same command safe when both kegs share the zlib rack: brew list then
+// shows only the library's files, and a bare uninstall would remove the library.
+func brewRenameNotice(executable string) string {
+	if !isOldFormulaKeg(executable) {
+		return ""
+	}
+	return fmt.Sprintf("\n%s\n"+
+		"  This copy comes from the old formula, which Homebrew no longer updates. Replace it:\n"+
+		"    %s\n"+
+		"    %s\n\n",
+		colorBold(symbolInfo+" The Homebrew formula was renamed from zlib to zlib-cli."),
+		colorCyan("brew list zlib | grep -q bin/zlib && brew uninstall zlib"),
+		colorCyan("brew install heartleo/tap/zlib-cli"))
+}
+
+func detectUpdateMethod(ctx context.Context, executable string) updateMethod {
+	if isHomebrewKeg(executable) {
+		return updateBrew
+	}
+	path := strings.ToLower(strings.ReplaceAll(executable, `\`, "/"))
+	if strings.Contains(path, "/microsoft/winget/packages/heartleo.zlib_") {
+		return updateWinget
+	}
+	if isModuleBuild(debug.ReadBuildInfo()) && goBinPath(ctx, executable) {
+		return updateGo
+	}
+	return updateRelease
+}
+
+// isModuleBuild reports whether the binary is the zlib command built from a
+// versioned module, as go install produces. info.Path is the main package;
+// info.Main.Path is the module path and never names cmd/zlib.
+func isModuleBuild(info *debug.BuildInfo, ok bool) bool {
+	return ok && info.Path == "github.com/heartleo/zlib/cmd/zlib" && semver.IsValid(info.Main.Version)
+}
+
+func goBinPath(ctx context.Context, executable string) bool {
+	output, err := exec.CommandContext(ctx, "go", "env", "-json", "GOBIN", "GOPATH").Output()
+	if err != nil {
+		return false
+	}
+	var env struct{ GOBIN, GOPATH string }
+	if err := json.Unmarshal(output, &env); err != nil {
+		return false
+	}
+	bin := env.GOBIN
+	if bin == "" {
+		paths := filepath.SplitList(env.GOPATH)
+		if len(paths) == 0 {
+			return false
+		}
+		bin = filepath.Join(paths[0], "bin")
+	}
+	return sameExecutable(filepath.Join(bin, filepath.Base(executable)), executable)
+}
+
+func sameExecutable(a, b string) bool {
+	a, errA := filepath.Abs(a)
+	b, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
+}

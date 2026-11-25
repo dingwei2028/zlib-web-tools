@@ -1,0 +1,23 @@
+{
+  "name": "zlib",
+  "displayName": "Z-Library",
+  "version": "0.3.0",
+  "description": "Search and download Z-Library books, browse saved books and recommendations, send books to Kindle, and look up and edit the metadata of local e-books with the zlib CLI.",
+  "author": {
+    "name": "heartleo"
+  },
+  "homepage": "https://github.com/heartleo/zlib",
+  "repository": "https://github.com/heartleo/zlib",
+  "license": "MIT",
+  "keywords": [
+    "zlibrary",
+    "z-library",
+    "books",
+    "ebook",
+    "download",
+    "search",
+    "kindle",
+    "metadata",
+    "cli"
+  ]
+}

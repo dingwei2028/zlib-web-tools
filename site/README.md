@@ -1,0 +1,66 @@
+# zlib.heartleo.dev
+
+The website for [zlib](https://github.com/heartleo/zlib): the landing page
+and the Send to Kindle guide. Plain HTML, CSS and JavaScript with no build
+step and no dependencies; the only external request is for the Google Fonts
+stylesheet.
+
+Design decisions, UI and text layout rules, motion standards,
+implementation patterns, past issues and the checks to run are in
+[`docs/site.md`](../docs/site.md). Read it before changing anything here.
+
+## Deploy
+
+GitHub Pages serves this directory, and Cloudflare only holds the DNS record.
+It is the same arrangement as
+[hn-cli](https://github.com/heartleo/hn-cli) uses for hndigest.heartleo.dev.
+
+`.github/workflows/pages.yml` deploys on every push to `main` that touches
+`site/**`, and again when a release is published, because the page shows the
+latest release version (the workflow stamps it in; a local preview shows
+`vX.Y.Z`). The first run also switches the repository's Pages source to
+"GitHub Actions", so there is nothing to set up in Settings beforehand.
+
+The `github-pages` environment allows deployments from the branch `main` and
+from tags matching `v*`. A release run's ref is its tag, so without the tag
+rule GitHub rejects it with "Tag ... is not allowed to deploy to github-pages";
+the workflow still builds `main`, not the tagged commit. The rules are a
+repository setting (Settings > Environments > github-pages), not code. List
+them with:
+
+```bash
+gh api repos/heartleo/zlib/environments/github-pages/deployment-branch-policies
+```
+
+### Cloudflare DNS
+
+Add one record under `heartleo.dev`:
+
+| Field  | Value                |
+| ------ | -------------------- |
+| Type   | `CNAME`              |
+| Name   | `zlib`               |
+| Target | `heartleo.github.io` |
+| Proxy  | **DNS only** (grey cloud) |
+| TTL    | Auto                 |
+
+The proxy has to stay off. GitHub issues the certificate for the custom
+domain itself, and it can only do that when the record resolves to GitHub's
+own addresses. Orange-cloud it and the cert never provisions.
+
+Check it with `dig +short zlib.heartleo.dev`. The answer should be
+`heartleo.github.io.` followed by four `185.199.*.153` addresses.
+
+### GitHub
+
+`site/CNAME` sets the custom domain, so the first deploy fills in
+Settings > Pages > Custom domain by itself. Once the DNS check passes, tick
+**Enforce HTTPS** there. The certificate takes a few minutes.
+
+## Preview locally
+
+```bash
+node scripts/build-zh.mjs                     # writes site/zh/
+python3 -m http.server 8000 --directory site
+# http://localhost:8000
+```
