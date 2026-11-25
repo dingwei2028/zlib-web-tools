@@ -24,6 +24,54 @@ English | [简体中文](README.zh.md)
   <img src="docs/search.gif" width="100%" alt="Book search in the terminal">
 </picture>
 
+---
+
+## 🌐 Web UI quick start (added in this fork)
+
+Besides the original Go CLI, this repo ships a **local web interface**: batch search, click an author to search, multi-account rotation with daily quota overview, duplicate-download protection, and downloads straight into your system Downloads folder. All requests run locally — nothing goes through third-party servers.
+
+**Ideal if you don't want to type commands and want to search many books at once.**
+
+### 1. Fill in your Cookie (one time)
+
+The web UI uses account-level cookies — no repeated password entry, and unaffected by the site's frequently changing domains.
+
+1. Log in to [Z-Library](https://z-library.cc) in your browser (your own account).
+2. Press `F12` → `Application` → `Cookies` → the current domain.
+3. Find `remix_userid` and `remix_userkey`, copy their values.
+4. Open `cookie.txt` in this repo, paste after the `=` signs and save:
+
+```
+remix_userid=your_value
+remix_userkey=your_value
+```
+
+> `cookie.txt` and `accounts.txt` are **empty templates** in this repo. Fill them in yourself for real use, and **never commit them to a public repo** — a cookie is a password.
+
+### 2. Start
+
+- **Windows**: double-click `start_web.bat` (opens the browser automatically).
+- **Other systems**: run `python zlib_web.py`.
+
+Then enter book titles (one per line), pick a format, hit search, and click **Download** on any result row.
+
+### 3. Multi-account rotation (optional)
+
+Each Z-Library account is typically limited to 10 downloads/day. To go beyond, add one account per line in `accounts.txt`:
+
+```
+email | remix_userid | remix_userkey
+```
+
+Downloads check the current account's quota and rotate to the next one when exhausted. The status bar shows each account's remaining count.
+
+### 4. Troubleshooting
+
+- **403 / Edge IP Restricted**: Cloudflare blocked your exit IP — switch networks or use a proxy.
+- **No results / not logged in**: cookie expired or wrong — redo step 1.
+- **Download button does nothing**: make sure you launched via `start_web.bat` (a static preview can't reach the local backend).
+- **Author search**: click the blue author name in a result to auto-fill and search.
+
 ## Features
 
 🔍 **Search** — filter by year, language, and format; sort results\
